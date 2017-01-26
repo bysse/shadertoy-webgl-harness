@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+
+	<title>ShaderToy WebGL harness</title>
+    <script src="webgl.js"></script>
+</head>
+
+<body onload="main()">
+    <canvas id="canvas" width="800" height="600">
+    </canvas>
+
+    <!-- Define music audio to use. -->
+    <audio id="music" src="webgl-audio-120.mp3" loop></audio>
+
+    <!-- Paste the shader within the script tag. -->
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        #define BPM 120.0
+        void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+            vec2 uv = fragCoord.xy / iResolution.xy;
+            float beat = iGlobalTime * BPM/60.;
+            float pulse = floor(beat) + pow(fract(beat), 3.);
+
+            fragColor = vec4(uv,0.5+0.5*sin(1.57 * pulse),1.0);
+        }
+    </script>
+
+    <script>
+        function main() {
+            var fullscreen = false;
+            var playOnLoad = true;
+
+            webGL = new WebGL('canvas', 'fragment-shader', fullscreen);            
+            webGL.loadMusic('music', playOnLoad);
+        }
+    </script>
+</body>
+</html>
