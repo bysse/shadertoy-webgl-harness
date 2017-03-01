@@ -9,10 +9,11 @@
 })();
 
 class WebGL {
-    constructor(canvasId, fragmentShaderId, fullscreen) {
+    constructor(canvasId, fragmentShaderId, fullscreen, maxLength=0.0) {
         this.canvas = document.getElementById(canvasId);
         this.gl = this.canvas.getContext("experimental-webgl");
         this.audio = null;
+        this.maxLength = maxLength;
 
         let shaderToyPrefix = "precision mediump float; uniform vec3 iResolution; uniform float iGlobalTime;\n ";
         let shaderToySuffix = "\nvoid main() { vec4 color = vec4(0.0); mainImage(color, gl_FragCoord.xy); gl_FragColor = color; }"
@@ -111,7 +112,12 @@ class WebGL {
             this.refresh_audio = false;       
         }
 
-        // gl.clear(gl.DEPTH_BUFFER_BIT);
+        if (this.maxLength > 0.0 && time > this.maxLength) {
+            this.stop();
+            return;
+        }
+
+        gl.clear(gl.DEPTH_BUFFER_BIT);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.vertexAttribPointer(shader.vertexAttribute, this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);

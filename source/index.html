@@ -30,8 +30,9 @@
         function main() {
             var fullscreen = false;
             var playOnLoad = true;
+            var stopTime = 10.0; // 0 for infinite play
 
-            webGL = new WebGL('canvas', 'fragment-shader', fullscreen);            
+            webGL = new WebGL('canvas', 'fragment-shader', fullscreen, stopTime);            
             webGL.loadMusic('music', playOnLoad);
         }
     </script>
