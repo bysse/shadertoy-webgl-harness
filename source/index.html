@@ -22,7 +22,7 @@
             float beat = iGlobalTime * BPM/60.;
             float pulse = floor(beat) + pow(fract(beat), 3.);
 
-            fragColor = vec4(uv,0.5+0.5*sin(1.57 * pulse),1.0);
+            fragColor = vec4(uv,0.5+0.5*sin(1.57 * pulse),1.0) + texture2D(iChannel0, uv);
         }
     </script>
 
@@ -32,8 +32,12 @@
             var playOnLoad = true;
             var stopTime = 32.0; // 0 for looping
 
-            webGL = new WebGL('canvas', 'fragment-shader', fullscreen, stopTime);            
+            webGL = new WebGL('canvas', 'fragment-shader', fullscreen, stopTime);     
             webGL.loadMusic('music', playOnLoad);
+
+            // this won't work without a server because of cross-origin
+            // this is easy to startup with Python: python -m SimpleHTTPServer 8000
+            webGL.loadTexture(0, 'texture.jpg');
         }
     </script>
 </body>

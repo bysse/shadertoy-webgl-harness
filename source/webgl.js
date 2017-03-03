@@ -14,8 +14,9 @@ class WebGL {
         this.gl = this.canvas.getContext("experimental-webgl");
         this.audio = null;
         this.maxLength = maxLength;
+        this.textures = {};
 
-        let shaderToyPrefix = "precision mediump float; uniform vec3 iResolution; uniform float iGlobalTime;\n ";
+        let shaderToyPrefix = "precision mediump float; uniform vec3 iResolution; uniform float iGlobalTime; uniform sampler2D iChannel0; uniform sampler2D iChannel1; uniform sampler2D iChannel2; uniform sampler2D iChannel3; \n ";
         let shaderToySuffix = "\nvoid main() { vec4 color = vec4(0.0); mainImage(color, gl_FragCoord.xy); gl_FragColor = color; }"
 
         let vertexShader = "attribute vec4 aPosition; void main() { gl_Position = aPosition; } ";
@@ -59,6 +60,23 @@ class WebGL {
                 this.refresh_audio = true;
             }
         });
+    }
+
+    loadTexture(channelNumber, source) {
+        var texture = this.gl.createTexture();
+        var gl = this.gl;
+        texture.image = new Image();
+        texture.image.onload = () => {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+
+            this.textures[channelNumber] = texture;
+        };
+        texture.image.src = source;        
     }
 
     loadMusic(elementId, runWhenLoaded) {
@@ -121,6 +139,14 @@ class WebGL {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.vertexAttribPointer(shader.vertexAttribute, this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        // set texture
+        for (var channel in this.textures) {
+            var texture = this.textures[channel];
+            gl.activeTexture(gl.TEXTURE0 + channel);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.uniform1i(gl.getUniformLocation(shader, 'iChannel' + channel), channel);
+        }
 
         // update uniforms        
         gl.uniform3f(gl.getUniformLocation(shader, "iResolution"), this.width, this.height, 0.);
