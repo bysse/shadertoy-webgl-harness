@@ -16,7 +16,7 @@ class WebGL {
         this.maxLength = maxLength;
         this.textures = {};
 
-        let shaderToyPrefix = "precision mediump float; uniform vec3 iResolution; uniform float iGlobalTime; uniform sampler2D iChannel0; uniform sampler2D iChannel1; uniform sampler2D iChannel2; uniform sampler2D iChannel3; \n ";
+        let shaderToyPrefix = "precision mediump float; uniform vec3 iResolution; uniform float iGlobalTime, iTime; uniform sampler2D iChannel0; uniform sampler2D iChannel1; uniform sampler2D iChannel2; uniform sampler2D iChannel3; \n ";
         let shaderToySuffix = "\nvoid main() { vec4 color = vec4(0.0); mainImage(color, gl_FragCoord.xy); gl_FragColor = color; }"
 
         let vertexShader = "attribute vec4 aPosition; void main() { gl_Position = aPosition; } ";
@@ -69,7 +69,24 @@ class WebGL {
         texture.image.onload = () => {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+            } catch (err) {
+                console.log(`ERROR: Failed to load texture ${source} : ${err}`);  
+                
+                console.log(`INFO: Generating placeholder texture for ${source}`);
+                var w = 64, bw = 4, data = [];
+                for (var y = 0; y < w; y++) {                    
+                    for (var x = 0; x < w; x++) {
+                        var ix = parseInt(x/bw), iy = parseInt(y/bw);
+                        var c = 0xff * ((ix+iy) % 2);
+                        data = data.concat([c, c, c, 0xff]);
+                    }
+                }
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, w, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data));
+            }
+
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.bindTexture(gl.TEXTURE_2D, null);
@@ -82,7 +99,12 @@ class WebGL {
     loadMusic(elementId, runWhenLoaded) {
         this.audio = document.getElementById(elementId);
         if (runWhenLoaded) {
-            this.audio.oncanplay = () => this.start();
+            if (this.audio.autoplay != true) {
+                console.log(`ERROR: autoplay property is not set on ${elementId}, automatic playback might not work properly`);
+            }            
+            this.audio.oncanplay = (e) => this.start();
+            this.audio.onplay = (e) => this._start();
+            this.audio.onpause = (e) => this.stop();
         } 
         this.audio.load();
     }
@@ -92,10 +114,23 @@ class WebGL {
             return;
         }
 
-        if (this.audio != null) {
-            this.audio.play();
+        if (this.audio == null) {
+            this._start();
+        } else {
+            var promise = this.audio.play();
+            if (promise === undefined) {
+                console.log("ERROR: Failed to start audio");
+            } else {
+                promise.then(_ => {
+                    this._start();
+                }).catch(error => {
+                    this.audio.controls = true;
+                });
+            }
         }
+    }
 
+    _start() {
         this.running = true;
         this.time0 = WebGL.getTime();
         this.timePreviousFrame = this.time0;
@@ -143,14 +178,15 @@ class WebGL {
         // set texture
         for (var channel in this.textures) {
             var texture = this.textures[channel];
-            gl.activeTexture(gl.TEXTURE0 + channel);
+            gl.activeTexture(gl.TEXTURE0 + parseInt(channel));
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.uniform1i(gl.getUniformLocation(shader, 'iChannel' + channel), channel);
         }
 
         // update uniforms        
         gl.uniform3f(gl.getUniformLocation(shader, "iResolution"), this.width, this.height, 0.);
-        gl.uniform1f(gl.getUniformLocation(shader, "iGlobalTime"), time);
+        gl.uniform1f(gl.getUniformLocation(shader, "iGlobalTime"), time); // legacy support
+        gl.uniform1f(gl.getUniformLocation(shader, "iTime"), time);
         
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertexBuffer.numItems);
 
@@ -216,6 +252,17 @@ class WebGL {
         var compilationLog = gl.getShaderInfoLog(shader);
         console.log('ERROR: ' + compilationLog);        
     }
+
+    static showSource(fragmentSourceId) {
+        var shader = WebGL.loadShader(fragmentSourceId);
+        var body = document.getElementsByTagName("body")[0];
+        console.log(body);
+
+        var code = document.createElement('pre');
+        code.innerText = shader;
+        body.appendChild(code);
+    }
+
 
     static getTime() {
         return 0.001 * new Date().getTime();
